@@ -68,17 +68,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ❌ REMOVE THE VARIABLE AND HARDCODE IT TEMPORARILY
-        // configuration.setAllowedOrigins(List.of("http://localhost:3000", frontendUrl)); 
-        
-        // ✅ ADD THIS: Explicitly allow your Vercel App
-        configuration.setAllowedOrigins(List.of(
-            "http://localhost:3000", 
-            "https://nexus-community-frontend.vercel.app" // <--- Paste your EXACT Vercel URL here
-        ));
+        // ❌ REMOVE specific origins
+        // configuration.setAllowedOrigins(List.of("...")); 
+
+        // ✅ ADD THIS: The "Magic Key" that allows everything dynamically
+        configuration.setAllowedOriginPatterns(List.of("*")); 
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("*")); // Allow ALL headers
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
