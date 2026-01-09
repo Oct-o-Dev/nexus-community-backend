@@ -1,6 +1,7 @@
 package com.abhi.nexus_community.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -41,20 +42,19 @@ public class SecurityConfig {
     }
 
     // NEW: Define the CORS rules
+    // Inject the variable from application.properties
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 1. Allow React Frontend
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        // Update this line to use the variable
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", frontendUrl));
 
-        // 2. Allow HTTP Methods (GET, POST, etc.)
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
-        // 3. Allow Headers (Authorization, Content-Type)
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-
-        // 4. Allow Credentials (if needed later)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
