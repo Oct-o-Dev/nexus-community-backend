@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // <--- Make sure this is imported
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,38 +25,63 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ENABLE CORS!
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .anyRequest().authenticated()
-                )
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
-
-    // NEW: Define the CORS rules
-    // Inject the variable from application.properties
+    // Inject the frontend URL from application.properties / Render Env Vars
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
     @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // 1. Disable CSRF (Stateless apps don't need it, and it causes 403s)
+            .csrf(csrf -> csrf.disable())
+
+            // 2. Enable CORS using our custom source below
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            // 3. Define Access Rules
+            .authorizeHttpRequests(auth -> auth
+                // Allow Login and Register
+                .requestMatchers("/api/auth/**").permitAll()
+                
+                // Allow WebSocket connections
+                .requestMatchers("/ws/**").permitAll()
+                
+                // THE NUCLEAR FIX: Explicitly allow "Pre-flight" checks (OPTIONS) from the browser
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
+                // Lock everything else
+                .anyRequest().authenticated()
+            )
+
+            // 4. No Sessions (Use JWTs instead)
+            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            
+            // 5. Add Authentication Provider and Filter
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    // --- CORS CONFIGURATION ---
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Update this line to use the variable
+        // Allow both Localhost (for testing) and Production (Vercel)
         configuration.setAllowedOrigins(List.of("http://localhost:3000", frontendUrl));
 
+        // Allow all standard methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        
+        // Allow all standard headers
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        
+        // Allow Credentials (Cookies/Auth Headers)
         configuration.setAllowCredentials(true);
+        
+        // Expose headers if needed (optional, but good for debugging)
+        configuration.setExposedHeaders(List.of("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
