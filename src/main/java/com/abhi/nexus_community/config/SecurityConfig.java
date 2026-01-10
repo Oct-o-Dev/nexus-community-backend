@@ -1,10 +1,12 @@
 package com.abhi.nexus_community.config;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Value; // Import Value
+import org.springframework.boot.web.servlet.FilterRegistrationBean; // <--- NEW IMPORT
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod; // <--- Make sure this is imported
+import org.springframework.core.Ordered; // <--- NEW IMPORT
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -12,8 +14,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter; // <--- NEW IMPORT
 
 import java.util.List;
 
@@ -25,61 +27,52 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
 
-    // Inject the frontend URL from application.properties / Render Env Vars
+    // We keep this just in case, but the new filter is dynamic
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Disable CSRF (Stateless apps don't need it, and it causes 403s)
-            .csrf(csrf -> csrf.disable())
-
-            // 2. Enable CORS using our custom source below
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-            // 3. Define Access Rules
+            .csrf(csrf -> csrf.disable()) // Disable CSRF
+            
+            // Note: We don't need .cors() here anymore because the bean below handles it globally!
+            
             .authorizeHttpRequests(auth -> auth
-                // Allow Login and Register
                 .requestMatchers("/api/auth/**").permitAll()
-                
-                // Allow WebSocket connections
                 .requestMatchers("/ws/**").permitAll()
-                
-                // THE NUCLEAR FIX: Explicitly allow "Pre-flight" checks (OPTIONS) from the browser
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                
-                // Lock everything else
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow pre-flight
                 .anyRequest().authenticated()
             )
-
-            // 4. No Sessions (Use JWTs instead)
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
-            // 5. Add Authentication Provider and Filter
             .authenticationProvider(authenticationProvider)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // --- CORS CONFIGURATION ---
+    // --- 🚨 THE ULTIMATE FIX: HIGH PRIORITY CORS FILTER 🚨 ---
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        // ❌ REMOVE specific origins
-        // configuration.setAllowedOrigins(List.of("...")); 
-
-        // ✅ ADD THIS: The "Magic Key" that allows everything dynamically
-        configuration.setAllowedOriginPatterns(List.of("*")); 
-
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Allow ALL headers
-        configuration.setAllowCredentials(true);
-
+    public FilterRegistrationBean<CorsFilter> corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+        CorsConfiguration config = new CorsConfiguration();
+        
+        // Allow Credentials (Cookies/Auth)
+        config.setAllowCredentials(true);
+        
+        // The "Magic Key" - Allow ALL origins dynamically
+        config.setAllowedOriginPatterns(List.of("*"));
+        
+        // Allow ALL Headers and Methods
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedMethods(List.of("*"));
+        
+        source.registerCorsConfiguration("/**", config);
+        
+        // Register the filter with HIGHEST PRECEDENCE
+        // This ensures it runs BEFORE Spring Security blocks anything.
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE); 
+        return bean;
     }
 }
