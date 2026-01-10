@@ -36,16 +36,14 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable CSRF
             
-            // Note: We don't need .cors() here anymore because the bean below handles it globally!
+            // 👇 ADD THIS LINE BACK! (Essential for linking Security to your CORS rules)
+            .cors(cors -> cors.configure(http)) 
             
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/api/public/**").permitAll() // Keep your Ping endpoint!
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                
-                // 👇 ADD THIS LINE: Completely open test endpoint
-                .requestMatchers("/api/public/**").permitAll() 
-                
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
