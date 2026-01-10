@@ -41,7 +41,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow pre-flight
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
+                // 👇 ADD THIS LINE: Completely open test endpoint
+                .requestMatchers("/api/public/**").permitAll() 
+                
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
