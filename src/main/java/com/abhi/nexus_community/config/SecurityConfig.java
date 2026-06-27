@@ -54,27 +54,28 @@ public class SecurityConfig {
     }
 
     // --- 🚨 THE ULTIMATE FIX: HIGH PRIORITY CORS FILTER 🚨 ---
+    // --- 🚨 THE ULTIMATE FIX: HIGH PRIORITY CORS FILTER 🚨 ---
     @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilter() {
+    // 👇 FIX: Rename the method so Spring Security ignores the bean name!
+    public FilterRegistrationBean<CorsFilter> customCorsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-        
+
         // Allow Credentials (Cookies/Auth)
         config.setAllowCredentials(true);
-        
+
         // The "Magic Key" - Allow ALL origins dynamically
         config.setAllowedOriginPatterns(List.of("*"));
-        
+
         // Allow ALL Headers and Methods
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("*"));
-        
+
         source.registerCorsConfiguration("/**", config);
-        
+
         // Register the filter with HIGHEST PRECEDENCE
-        // This ensures it runs BEFORE Spring Security blocks anything.
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE); 
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
     }
 }
